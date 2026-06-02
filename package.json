@@ -1,0 +1,53 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "description": "Cosmo frontend — Next.js App Router app: feed, stories, libraries, forums, goals, AI Studio, with ivory/persimmon design system and runtime Tweaks panel.",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "prisma:generate": "prisma generate --schema ../prisma/schema.prisma --generator frontend"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
+    "@prisma/client": "^5.22.0",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.2",
+    "next": "^16.2.7",
+    "next-auth": "^4.24.7",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-hook-form": "^7.53.0",
+    "socket.io-client": "^4.8.3",
+    "zod": "^3.23.8",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@chromatic-com/storybook": "^4.1.2",
+    "@storybook/addon-a11y": "^10.0.6",
+    "@storybook/addon-docs": "^10.0.6",
+    "@storybook/addon-onboarding": "^10.0.6",
+    "@storybook/addon-vitest": "^10.0.6",
+    "@storybook/nextjs-vite": "^10.0.6",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitest/browser-playwright": "^4.0.8",
+    "@vitest/coverage-v8": "^4.0.8",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.1",
+    "eslint-plugin-storybook": "^10.0.6",
+    "playwright": "^1.56.1",
+    "storybook": "^10.0.6",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.0.8"
+  }
+}

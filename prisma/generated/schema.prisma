@@ -1,0 +1,679 @@
+generator frontend {
+  provider = "prisma-client-js"
+  output   = "../frontend/prisma/generated"
+}
+
+generator backend {
+  provider = "prisma-client-js"
+  output   = "../backend/src/prisma/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PrivacyLevel {
+  PUBLIC
+  FRIENDS
+  PRIVATE
+}
+
+enum FollowStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACTIVE
+  BLOCKED
+  ENDED
+}
+
+enum PrivacyScope {
+  PROFILE
+  POSTS
+  LIBRARY
+  FORUMS
+  GOALS
+}
+
+enum Role {
+  USER
+  MOD
+  ADMIN
+  EDUCATOR
+  CARETAKER
+}
+
+enum AgeGateStatus {
+  UNKNOWN
+  VERIFIED_ADULT
+  VERIFIED_MINOR
+  PENDING
+}
+
+enum ContentCategory {
+  BOOKS
+  COMICS
+  ART
+  MUSIC
+  PODCASTS
+  GOALS
+  FORUM
+  ANNOUNCEMENT
+  UPDATE
+}
+
+enum VisibilityLevel {
+  PUBLIC
+  FRIENDS
+  PRIVATE
+}
+
+enum DemoActivityAction {
+  USER_CREATE
+  FOLLOW_CREATE
+  FRIENDSHIP_CREATE
+  POST_CREATE
+  LIBRARY_CREATE
+  FORUM_THREAD_CREATE
+  FORUM_REPLY_CREATE
+  GOAL_CREATE
+  GOAL_PROGRESS_CREATE
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum AIJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum StoryVisibility {
+  PRIVATE
+  UNLISTED
+  PUBLIC
+}
+
+enum StoryStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id                   String        @id @default(cuid())
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  email                String?       @unique
+  emailVerified        DateTime?
+  username             String        @unique
+  supabaseId           String?       @unique
+  displayName          String
+  hashedPassword       String?
+  bio                  String?       @db.Text
+  avatarUrl            String?
+  coverUrl             String?
+  privacyLevel         PrivacyLevel  @default(PUBLIC)
+  badges               Json?
+  roles                Role[]        @default([])
+  ageGateStatus        AgeGateStatus @default(UNKNOWN)
+  parentalControlLevel Int?          @default(0)
+  location             String?
+  website              String?
+  pronouns             String?
+  onboardingCompleted  Boolean       @default(false)
+  lastActiveAt         DateTime?     @db.Timestamp(6)
+  isDemo               Boolean       @default(false)
+
+  accounts             Account[]
+  sessions             Session[]
+  verificationTokens   VerificationToken[]
+  followsFrom          Follow[]            @relation("FollowFrom")
+  followsTo            Follow[]            @relation("FollowTo")
+  friendshipsInitiated Friendship[]        @relation("FriendshipInitiated")
+  friendshipsReceived  Friendship[]        @relation("FriendshipReceived")
+  privacyRules         PrivacyRule[]       @relation("PrivacyRuleOwner")
+  privacyGrants        PrivacyRule[]       @relation("PrivacyRuleViewer")
+  profileSettings      ProfileSetting?
+  posts                Post[]
+  libraryItems         LibraryItem[]
+  forumThreads         ForumThread[]
+  forumReplies         ForumReply[]
+  goals                Goal[]
+  goalProgressEvents   GoalProgress[]
+  demoActivityLogs     DemoActivityLog[]
+  membership           UserMembership?
+  aiJobs               AIJob[]
+  stories              Story[]
+  auditLogs            AuditLog[]
+  dailyUsage           DailyUserUsage[]
+  connectedApps        ConnectedApp[]
+  reactions            Reaction[]
+  comments             Comment[]
+  media                Media[]
+  notifications        Notification[]      @relation("NotificationOwner")
+  notificationsActed   Notification[]      @relation("NotificationActor")
+
+  @@index([username])
+}
+
+model ProfileSetting {
+  id            String  @id @default(cuid())
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String  @unique
+  showActivity  Boolean @default(true)
+  showLibraries Boolean @default(true)
+  showBadges    Boolean @default(true)
+  allowMessages Boolean @default(true)
+  allowMentions Boolean @default(true)
+}
+
+model Follow {
+  id          String       @id @default(cuid())
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  follower    User         @relation("FollowFrom", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId  String
+  following   User         @relation("FollowTo", fields: [followingId], references: [id], onDelete: Cascade)
+  followingId String
+  status      FollowStatus @default(PENDING)
+  mute        Boolean      @default(false)
+  favorite    Boolean      @default(false)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+model Friendship {
+  id               String           @id @default(cuid())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  initiator        User             @relation("FriendshipInitiated", fields: [initiatorId], references: [id])
+  initiatorId      String
+  recipient        User             @relation("FriendshipReceived", fields: [recipientId], references: [id])
+  recipientId      String
+  status           FriendshipStatus @default(PENDING)
+  context          String?          @db.Text
+  lastInteractedAt DateTime?        @db.Timestamp(6)
+
+  @@unique([initiatorId, recipientId])
+  @@index([recipientId])
+}
+
+model PrivacyRule {
+  id        String       @id @default(cuid())
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  owner     User         @relation("PrivacyRuleOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId   String
+  viewer    User?        @relation("PrivacyRuleViewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  viewerId  String?
+  scope     PrivacyScope
+  level     PrivacyLevel
+  notes     String?      @db.Text
+
+  @@index([ownerId, scope])
+  @@index([viewerId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  user       User?    @relation(fields: [userId], references: [id])
+  userId     String?
+
+  @@unique([identifier, token])
+}
+
+model Post {
+  id            String          @id @default(cuid())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  author        User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId      String
+  title         String?
+  content       String          @db.Text
+  category      ContentCategory
+  visibility    VisibilityLevel @default(PUBLIC)
+  likesCount    Int             @default(0)
+  commentsCount Int             @default(0)
+  tags          String[]        @default([])
+
+  reactions Reaction[]
+  comments  Comment[]
+  media     PostMedia[]
+
+  @@index([authorId, createdAt])
+  @@index([visibility, createdAt])
+}
+
+enum ReactionKind {
+  LIKE
+  LOVE
+  INSPIRE
+  TIP
+  BOOKMARK
+}
+
+model Reaction {
+  id        String       @id @default(cuid())
+  createdAt DateTime     @default(now())
+  post      Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  kind      ReactionKind
+
+  @@unique([postId, userId, kind], name: "postId_userId_kind")
+  @@index([postId])
+  @@index([userId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  parent    Comment?  @relation("CommentChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId  String?
+  children  Comment[] @relation("CommentChildren")
+  body      String    @db.Text
+  deletedAt DateTime?
+
+  @@index([postId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+enum MediaKind {
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+}
+
+enum MediaStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+model Media {
+  id          String      @id @default(cuid())
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId     String
+  kind        MediaKind
+  status      MediaStatus @default(PENDING)
+  bucket      String
+  objectKey   String      @unique
+  contentType String
+  sizeBytes   Int?
+  width       Int?
+  height      Int?
+  durationMs  Int?
+  metadata    Json?
+
+  posts PostMedia[]
+
+  @@index([ownerId, createdAt])
+}
+
+model PostMedia {
+  postId   String
+  mediaId  String
+  position Int    @default(0)
+
+  post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([postId, mediaId])
+  @@index([mediaId])
+}
+
+enum NotificationKind {
+  FOLLOW_REQUEST
+  FOLLOW_ACCEPTED
+  POST_REACTION
+  POST_COMMENT
+  COMMENT_REPLY
+  AI_JOB_COMPLETE
+  MENTION
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  createdAt  DateTime         @default(now())
+  user       User             @relation("NotificationOwner", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  actor      User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorId    String?
+  kind       NotificationKind
+  targetType String?
+  targetId   String?
+  message    String?
+  readAt     DateTime?
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+model LibraryItem {
+  id          String          @id @default(cuid())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  owner       User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId     String
+  title       String
+  description String?         @db.Text
+  category    ContentCategory
+  visibility  VisibilityLevel @default(PUBLIC)
+  tags        String[]
+
+  @@index([ownerId])
+}
+
+model Forum {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  threads ForumThread[]
+}
+
+model ForumThread {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  title      String
+  forum      Forum    @relation(fields: [forumId], references: [id], onDelete: Cascade)
+  forumId    String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   String
+  body       String   @db.Text
+  replyCount Int      @default(0)
+
+  replies ForumReply[]
+
+  @@index([forumId])
+  @@index([authorId, createdAt])
+}
+
+model ForumReply {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId  String
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  content   String      @db.Text
+
+  @@index([threadId])
+  @@index([authorId, createdAt])
+}
+
+model Goal {
+  id          String          @id @default(cuid())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  owner       User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId     String
+  title       String
+  description String?         @db.Text
+  category    ContentCategory
+  status      String          @default("ACTIVE")
+  targetDate  DateTime?
+
+  progressEvents GoalProgress[]
+
+  @@index([ownerId])
+}
+
+model GoalProgress {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goalId    String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId   String
+  note      String   @db.Text
+  progress  Int      @default(0)
+
+  @@index([goalId])
+  @@index([ownerId, createdAt])
+}
+
+model DemoActivityLog {
+  id         String             @id @default(cuid())
+  user       User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String?
+  action     DemoActivityAction
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  occurredAt DateTime           @default(now())
+
+  @@index([userId, occurredAt])
+  @@index([action, occurredAt])
+}
+
+model MembershipTier {
+  id               String           @id @default(cuid())
+  name             String           @unique
+  slug             String           @unique
+  description      String?
+  priceCents       Int
+  currency         String           @default("usd")
+  maxStoriesPerDay Int
+  maxWordsPerStory Int
+  priorityLevel    Int
+  availableModels  String[]
+  stripePriceId    String?          @unique
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  userMemberships  UserMembership[]
+}
+
+model UserMembership {
+  id                   String           @id @default(cuid())
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               String           @unique
+  tier                 MembershipTier   @relation(fields: [tierId], references: [id])
+  tierId               String
+  status               MembershipStatus @default(ACTIVE)
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model ModelProvider {
+  id          String   @id @default(cuid())
+  label       String   @unique
+  identifier  String   @unique
+  description String?
+  family      String?
+  maxWords    Int
+  baseCostUSD Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  stories     Story[]
+  jobs        AIJob[]
+}
+
+model AIJob {
+  id            String        @id @default(cuid())
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  prompt        String
+  tone          String?
+  genre         String?
+  safetyLevel   String?
+  status        AIJobStatus   @default(PENDING)
+  errorMessage  String?
+  resultStory   Story?        @relation("StoryGeneratedJobs", fields: [resultStoryId], references: [id])
+  resultStoryId String?
+  model         ModelProvider @relation(fields: [modelId], references: [id])
+  modelId       String
+  priority      Int
+  queuedAt      DateTime      @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  tokensInput   Int?
+  tokensOutput  Int?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Story {
+  id                String          @id @default(cuid())
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  title             String?
+  synopsis          String?
+  body              String          @db.Text
+  visibility        StoryVisibility @default(PRIVATE)
+  status            StoryStatus     @default(DRAFT)
+  model             ModelProvider   @relation(fields: [modelId], references: [id])
+  modelId           String
+  safetyLevel       String?
+  flagged           Boolean         @default(false)
+  publishedAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  versions          StoryVersion[]
+  tags              StoryTag[]
+  generatedFromJobs AIJob[]         @relation("StoryGeneratedJobs")
+
+  @@index([userId])
+  @@index([status])
+  @@index([visibility])
+}
+
+model StoryVersion {
+  id        String   @id @default(cuid())
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  storyId   String
+  body      String   @db.Text
+  note      String?
+  createdAt DateTime @default(now())
+  createdBy String
+}
+
+model StoryTag {
+  id        String   @id @default(cuid())
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  storyId   String
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+enum ConnectedAppKey {
+  AI_OS
+  LIFEHUB
+  APPMAKER
+  APPBLUEPRINTS
+}
+
+enum ConnectedAppStatus {
+  CONNECTED
+  PENDING
+  DISCONNECTED
+  COMING_SOON
+}
+
+model ConnectedApp {
+  id          String             @id @default(cuid())
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  appKey      ConnectedAppKey
+  status      ConnectedAppStatus @default(COMING_SOON)
+  accessToken String?            @db.Text
+  scopes      String[]           @default([])
+  metadata    Json?
+  lastSyncAt  DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([userId, appKey], name: "userId_appKey")
+  @@index([appKey])
+}
+
+model DailyUserUsage {
+  id               String   @id @default(cuid())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String
+  date             DateTime
+  storiesQueued    Int      @default(0)
+  storiesCompleted Int      @default(0)
+  tokensConsumed   Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, date], name: "userId_date")
+  @@index([date])
+}

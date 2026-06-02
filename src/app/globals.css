@@ -1,0 +1,37 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html, body { margin: 0; padding: 0; }
+* { box-sizing: border-box; }
+
+.landing-feature-card {
+  display: block;
+  text-decoration: none;
+  padding: 28px 24px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: var(--surface, var(--bg));
+  transition: border-color 0.15s, transform 0.15s;
+}
+.landing-feature-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--t-3);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+  text-rendering: optimizeLegibility;
+}
