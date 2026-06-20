@@ -6,6 +6,7 @@ import type { ProfileSettings } from "@/types/profile";
 
 type PrivacyFormProps = {
   userId: string;
+  token: string;
   profile: ProfileSettings;
 };
 
@@ -15,7 +16,7 @@ const privacyOptions = [
   { label: "Private", value: "PRIVATE", description: "Visible only to you (and designated caretakers)." },
 ];
 
-export const PrivacyForm = ({ userId, profile }: PrivacyFormProps) => {
+export const PrivacyForm = ({ userId, token, profile }: PrivacyFormProps) => {
   const [privacyLevel, setPrivacyLevel] = useState(profile.privacyLevel);
   const [showActivity, setShowActivity] = useState(profile.profileSettings?.showActivity ?? true);
   const [showLibraries, setShowLibraries] = useState(profile.profileSettings?.showLibraries ?? true);
@@ -30,7 +31,10 @@ export const PrivacyForm = ({ userId, profile }: PrivacyFormProps) => {
     try {
       const res = await fetch(`${env.publicBackendApiUrl}/users/${userId}/privacy`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           privacyLevel,
           showActivity,

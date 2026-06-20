@@ -35,7 +35,7 @@ export default async function PrivacySettingsPage() {
         </p>
       </header>
       <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <PrivacyForm userId={session.user.id} profile={profile} />
+        <PrivacyForm userId={session.user.id} token={session.user.token ?? ""} profile={profile} />
       </div>
     </div>
   );

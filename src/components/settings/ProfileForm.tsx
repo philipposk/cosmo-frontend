@@ -21,10 +21,11 @@ type FormValues = z.infer<typeof schema>;
 
 type ProfileFormProps = {
   userId: string;
+  token: string;
   profile: ProfileSettings;
 };
 
-export const ProfileForm = ({ userId, profile }: ProfileFormProps) => {
+export const ProfileForm = ({ userId, token, profile }: ProfileFormProps) => {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const {
     register,
@@ -49,7 +50,10 @@ export const ProfileForm = ({ userId, profile }: ProfileFormProps) => {
     try {
       const res = await fetch(`${env.publicBackendApiUrl}/users/${userId}/profile`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           ...values,
           bio: values.bio || undefined,
