@@ -3,18 +3,27 @@ import { notFound } from "next/navigation";
 import { getServerSession } from "@/lib/auth/server";
 import { FollowButton } from "@/components/social/FollowButton";
 
-async function fetchProfile(username: string) {
-  const res = await fetch(`${env.backendApiUrl}/users/${username}`, { cache: "no-store" });
+function authHeaders(token?: string | null): HeadersInit {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function fetchProfile(username: string, token?: string | null) {
+  // Forward the viewer's token so private/friends profiles resolve to the
+  // full view when the viewer is allowed to see it.
+  const res = await fetch(`${env.backendApiUrl}/users/${username}`, {
+    cache: "no-store",
+    headers: authHeaders(token),
+  });
   if (!res.ok) {
     return null;
   }
   return res.json();
 }
 
-async function fetchStatus(viewerId: string, targetId: string) {
+async function fetchStatus(targetId: string, token: string) {
   const res = await fetch(
-    `${env.backendApiUrl}/social/status?viewerId=${viewerId}&targetId=${targetId}`,
-    { cache: "no-store" },
+    `${env.backendApiUrl}/social/status?targetId=${targetId}`,
+    { cache: "no-store", headers: authHeaders(token) },
   );
   if (!res.ok) {
     return null;
@@ -24,14 +33,18 @@ async function fetchStatus(viewerId: string, targetId: string) {
 
 export default async function ProfilePage({ params }: { params: { username: string } }) {
   const session = await getServerSession();
-  const profile = await fetchProfile(params.username);
+  const token = session?.user?.token ?? null;
+  const profile = await fetchProfile(params.username, token);
 
   if (!profile) {
     notFound();
   }
 
   const isOwner = session?.user?.id === profile.id;
-  const status = !isOwner && session?.user ? await fetchStatus(session.user.id, profile.id) : null;
+  const status =
+    !isOwner && session?.user && token
+      ? await fetchStatus(profile.id, token)
+      : null;
 
   return (
     <div className="space-y-8">
@@ -54,9 +67,9 @@ export default async function ProfilePage({ params }: { params: { username: stri
               </span>
             ))}
           </div>
-          {!isOwner && session?.user && (
+          {!isOwner && session?.user && token && (
             <FollowButton
-              currentUserId={session.user.id}
+              token={token}
               targetUserId={profile.id}
               initialFollowStatus={status?.followStatus ?? null}
               initialFriendshipStatus={status?.friendshipStatus ?? null}

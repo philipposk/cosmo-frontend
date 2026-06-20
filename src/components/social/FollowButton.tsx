@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { env } from "@/lib/env";
-import { useAppStore } from "@/store/useAppStore";
 
 type FollowStatus = "PENDING" | "ACCEPTED" | "BLOCKED" | null;
 type FriendshipStatus = "PENDING" | "ACTIVE" | "BLOCKED" | "ENDED" | null;
 
 type FollowButtonProps = {
-  currentUserId: string;
+  /** The viewer's Cosmo JWT — required; the API derives the actor from it. */
+  token: string;
   targetUserId: string;
   initialFollowStatus: FollowStatus;
   initialFriendshipStatus: FriendshipStatus;
@@ -16,7 +16,7 @@ type FollowButtonProps = {
 };
 
 export const FollowButton = ({
-  currentUserId,
+  token,
   targetUserId,
   initialFollowStatus,
   initialFriendshipStatus,
@@ -25,36 +25,41 @@ export const FollowButton = ({
   const [followStatus, setFollowStatus] = useState<FollowStatus>(initialFollowStatus);
   const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>(initialFriendshipStatus);
   const [friendshipId, setFriendshipId] = useState<string | null>(initialFriendshipId);
+  const [blocked, setBlocked] = useState(false);
   const [loading, setLoading] = useState(false);
-  const toggleSidebar = useAppStore((state) => state.toggleSidebar); // example usage of store to meet state mgmt requirement
+  const [error, setError] = useState<string | null>(null);
+
+  const api = (path: string, init: RequestInit = {}) =>
+    fetch(`${env.publicBackendApiUrl}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(init.headers ?? {}),
+      },
+    });
 
   const handleFollow = async () => {
     setLoading(true);
+    setError(null);
     try {
       if (followStatus === "ACCEPTED" || followStatus === "PENDING") {
-        await fetch(`${env.publicBackendApiUrl}/social/follow`, {
+        await api("/social/follow", {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ followerId: currentUserId, followingId: targetUserId }),
+          body: JSON.stringify({ followingId: targetUserId }),
         });
         setFollowStatus(null);
-        setFriendshipStatus(friendshipStatus === "ACTIVE" ? "ENDED" : friendshipStatus);
         return;
       }
-
-      const res = await fetch(`${env.publicBackendApiUrl}/social/follow`, {
+      const res = await api("/social/follow", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ followerId: currentUserId, followingId: targetUserId }),
+        body: JSON.stringify({ followingId: targetUserId }),
       });
-
-      if (!res.ok) {
-        throw new Error("Unable to follow user");
-      }
+      if (!res.ok) throw new Error("Unable to follow user");
       const data = await res.json();
       setFollowStatus(data.status as FollowStatus);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -62,58 +67,90 @@ export const FollowButton = ({
 
   const handleFriend = async () => {
     setLoading(true);
+    setError(null);
     try {
       if (friendshipStatus === "ACTIVE" && friendshipId) {
-        await fetch(`${env.publicBackendApiUrl}/social/friend/${friendshipId}`, {
-          method: "DELETE",
-        });
+        await api(`/social/friend/${friendshipId}`, { method: "DELETE" });
         setFriendshipStatus("ENDED");
         setFriendshipId(null);
         return;
       }
-
-      const res = await fetch(`${env.publicBackendApiUrl}/social/friend`, {
+      const res = await api("/social/friend", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ initiatorId: currentUserId, recipientId: targetUserId }),
+        body: JSON.stringify({ recipientId: targetUserId }),
       });
-
-      if (!res.ok) {
-        throw new Error("Unable to request friendship");
-      }
-
+      if (!res.ok) throw new Error("Unable to request friendship");
       const data = await res.json();
       setFriendshipStatus(data.status as FriendshipStatus);
       setFriendshipId(data.id as string);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
-  const followLabel = (() => {
-    if (loading) return "Saving...";
-    if (followStatus === "ACCEPTED") return "Following";
-    if (followStatus === "PENDING") return "Requested";
-    return "Follow";
-  })();
+  const handleBlock = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (blocked) {
+        await api(`/social/block/${targetUserId}`, { method: "DELETE" });
+        setBlocked(false);
+        return;
+      }
+      if (!window.confirm("Block this user? They won't be able to follow you.")) {
+        setLoading(false);
+        return;
+      }
+      const res = await api("/social/block", {
+        method: "POST",
+        body: JSON.stringify({ followingId: targetUserId }),
+      });
+      if (!res.ok) throw new Error("Unable to block user");
+      setBlocked(true);
+      setFollowStatus(null);
+      setFriendshipStatus("ENDED");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const friendLabel = (() => {
-    if (loading) return "Saving...";
-    if (friendshipStatus === "ACTIVE") return "Friends";
-    if (friendshipStatus === "PENDING") return "Request sent";
-    return "Add friend";
-  })();
+  const followLabel = loading
+    ? "Saving…"
+    : followStatus === "ACCEPTED"
+      ? "Following"
+      : followStatus === "PENDING"
+        ? "Requested"
+        : "Follow";
+
+  const friendLabel = loading
+    ? "Saving…"
+    : friendshipStatus === "ACTIVE"
+      ? "Friends"
+      : friendshipStatus === "PENDING"
+        ? "Request sent"
+        : "Add friend";
+
+  if (blocked) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ color: "var(--mute)", fontSize: "var(--t-2)" }}>You blocked this user.</span>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={handleBlock} disabled={loading}>
+          Unblock
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-wrap items-center gap-4">
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
       <button
         type="button"
         onClick={handleFollow}
-        className={`rounded-full px-4 py-1.5 text-sm font-semibold transition focus:outline-none focus:ring-4 focus:ring-indigo-200 ${
-          followStatus ? "bg-slate-200 text-slate-700 hover:bg-slate-300" : "bg-indigo-600 text-white hover:bg-indigo-500"
-        }`}
+        className={"btn btn-sm " + (followStatus ? "btn-ghost" : "btn-primary")}
         disabled={loading}
       >
         {followLabel}
@@ -121,23 +158,21 @@ export const FollowButton = ({
       <button
         type="button"
         onClick={handleFriend}
-        className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition focus:outline-none focus:ring-4 focus:ring-indigo-200 ${
-          friendshipStatus === "ACTIVE"
-            ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            : "border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-600"
-        }`}
+        className={"btn btn-sm " + (friendshipStatus === "ACTIVE" ? "btn-ghost" : "btn-ghost")}
         disabled={loading}
       >
         {friendLabel}
       </button>
       <button
         type="button"
-        className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-500 hover:border-indigo-200 hover:text-indigo-600"
-        onClick={toggleSidebar}
+        className="btn btn-ghost btn-sm"
+        style={{ color: "var(--mute)" }}
+        onClick={handleBlock}
+        disabled={loading}
       >
-        Toggle sidebar
+        Block
       </button>
+      {error && <span style={{ color: "var(--accent-ink)", fontSize: "var(--t-1)" }}>{error}</span>}
     </div>
   );
 };
-
