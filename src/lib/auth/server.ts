@@ -8,6 +8,7 @@
  *   const token = session?.user?.token ?? null;
  */
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { CosmoSession, CosmoUser } from "./session";
 
@@ -25,6 +26,8 @@ async function exchangeToken(supabaseAccessToken: string): Promise<CosmoUser | n
         "Content-Type": "application/json",
       },
       cache: "no-store",
+      // Cap the wait so a slow/down backend can't stall server rendering.
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) return null;
@@ -55,23 +58,29 @@ async function exchangeToken(supabaseAccessToken: string): Promise<CosmoUser | n
  * Drop-in for next-auth's getServerSession(authOptions).
  * Call it from any Server Component or Route Handler.
  *
+ * Wrapped in React's cache() so multiple server components rendering in the
+ * same request share ONE token exchange instead of hitting the backend once
+ * per component.
+ *
  * Returns null when the user is not signed in.
  */
-export async function getServerSession(): Promise<CosmoSession | null> {
-  const supabase = await createClient();
-  if (!supabase) return null;
+export const getServerSession = cache(
+  async (): Promise<CosmoSession | null> => {
+    const supabase = await createClient();
+    if (!supabase) return null;
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-  if (!session) return null;
+    if (!session) return null;
 
-  const user = await exchangeToken(session.access_token);
-  if (!user) return null;
+    const user = await exchangeToken(session.access_token);
+    if (!user) return null;
 
-  return {
-    user,
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-  };
-}
+    return {
+      user,
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+  },
+);

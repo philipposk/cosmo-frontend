@@ -14,6 +14,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -80,6 +81,8 @@ async function exchangeToken(supabaseAccessToken: string): Promise<CosmoUser | n
         "Content-Type": "application/json",
       },
       cache: "no-store",
+      // Don't let a slow/down backend hang the auth state forever.
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) return null;
@@ -113,9 +116,13 @@ async function exchangeToken(supabaseAccessToken: string): Promise<CosmoUser | n
 export function CosmoAuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<CosmoSession | null>(null);
   const [status, setStatus] = useState<SessionStatus>("loading");
-  const supabase = createClient();
+  // Memoise the client so the auth-listener effect subscribes exactly once
+  // instead of re-subscribing on every render.
+  const supabase = useMemo(() => createClient(), []);
 
-  // Track the last Supabase access token we exchanged, to avoid redundant calls
+  // The last access token we exchanged SUCCESSFULLY. Used to skip redundant
+  // exchanges. Only set on success, so a failed exchange stays retryable, and
+  // a different token (e.g. after logout→login) always re-exchanges.
   const lastTokenRef = useRef<string | null>(null);
 
   const hydrateFromSupabase = useCallback(
@@ -129,29 +136,29 @@ export function CosmoAuthProvider({ children }: { children: React.ReactNode }) {
 
       const accessToken = supabaseSession.access_token;
 
-      // Skip if we already exchanged this exact token
-      if (accessToken === lastTokenRef.current && status === "authenticated") {
+      // Already exchanged this exact token successfully — nothing to do.
+      // (No `status` read here: that would be a stale closure value.)
+      if (accessToken === lastTokenRef.current) {
         return;
       }
 
-      lastTokenRef.current = accessToken;
       setStatus("loading");
 
       const user = await exchangeToken(accessToken);
 
       if (user) {
+        lastTokenRef.current = accessToken; // record only on success
         const expires = new Date(
           Date.now() + 7 * 24 * 60 * 60 * 1000,
         ).toISOString();
         setSession({ user, expires });
         setStatus("authenticated");
       } else {
+        lastTokenRef.current = null; // allow a later retry
         setSession(null);
         setStatus("unauthenticated");
-        lastTokenRef.current = null;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
