@@ -3,7 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/common/Icon";
-import { createGoal, deleteGoal, logProgress, type Goal } from "@/lib/api/goals";
+import {
+  createGoal,
+  deleteGoal,
+  goalProgressPct,
+  logProgress,
+  setGoalStatus,
+  type Goal,
+} from "@/lib/api/goals";
 
 export function GoalsBoard({ token, initial }: { token: string; initial: Goal[] }) {
   const router = useRouter();
@@ -33,11 +40,26 @@ export function GoalsBoard({ token, initial }: { token: string; initial: Goal[] 
     }
   }
 
-  async function onLog(goalId: string) {
+  async function onLog(goal: Goal) {
     const note = window.prompt("Quick progress note?");
     if (!note?.trim()) return;
+    const current = goalProgressPct(goal);
+    const pctRaw = window.prompt(`Progress so far (0–100%)?`, String(current));
+    if (pctRaw === null) return;
+    const progress = Math.max(0, Math.min(100, Number(pctRaw) || current));
     try {
-      await logProgress(token, goalId, { note, progress: 1 });
+      await logProgress(token, goal.id, { note, progress });
+      startTransition(() => router.refresh());
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function onToggleComplete(goal: Goal) {
+    const next = goal.status === "COMPLETED" ? "ACTIVE" : "COMPLETED";
+    try {
+      const updated = await setGoalStatus(token, goal.id, next);
+      setGoals((prev) => prev.map((g) => (g.id === goal.id ? { ...g, status: updated.status } : g)));
       startTransition(() => router.refresh());
     } catch (err) {
       setError((err as Error).message);
@@ -58,7 +80,10 @@ export function GoalsBoard({ token, initial }: { token: string; initial: Goal[] 
   return (
     <div>
       <div className="row between" style={{ marginBottom: 14 }}>
-        <span className="eyebrow">{goals.length} active</span>
+        <span className="eyebrow">
+          {goals.filter((g) => g.status !== "COMPLETED").length} active ·{" "}
+          {goals.filter((g) => g.status === "COMPLETED").length} done
+        </span>
         <button
           type="button"
           className="btn btn-primary btn-sm"
@@ -100,12 +125,23 @@ export function GoalsBoard({ token, initial }: { token: string; initial: Goal[] 
           {goals.map((g) => {
             const events = g.progressEvents ?? [];
             const lastNote = events[0]?.note;
+            const pct = goalProgressPct(g);
+            const done = g.status === "COMPLETED";
             return (
-              <div key={g.id} className="goal-card">
+              <div key={g.id} className="goal-card" style={done ? { opacity: 0.7 } : undefined}>
                 <div className="row between" style={{ alignItems: "flex-start" }}>
                   <div style={{ flex: 1 }}>
                     <span className="pill">{g.category}</span>
-                    <h3 style={{ margin: "10px 0 0", fontWeight: 500, fontSize: 17 }}>{g.title}</h3>
+                    <h3
+                      style={{
+                        margin: "10px 0 0",
+                        fontWeight: 500,
+                        fontSize: 17,
+                        textDecoration: done ? "line-through" : "none",
+                      }}
+                    >
+                      {g.title}
+                    </h3>
                     {g.description && (
                       <p style={{ margin: "6px 0 0", color: "var(--mute)", fontSize: "var(--t-2)" }}>
                         {g.description}
@@ -113,26 +149,42 @@ export function GoalsBoard({ token, initial }: { token: string; initial: Goal[] 
                     )}
                   </div>
                   <div className="row" style={{ gap: 6 }}>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => onLog(g.id)}>
-                      <Icon name="check" size={13} /> Log
+                    {!done && (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => onLog(g)}>
+                        <Icon name="check" size={13} /> Log
+                      </button>
+                    )}
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => onToggleComplete(g)}>
+                      {done ? "Reopen" : "Complete"}
                     </button>
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => onDelete(g.id)}>
                       <Icon name="dots" size={13} /> Delete
                     </button>
                   </div>
                 </div>
-                <div className="goal-stats">
-                  <div>
-                    <span style={{ display: "block" }}>Progress events</span>
-                    <b>{g._count?.progressEvents ?? events.length}</b>
+
+                {/* Progress bar */}
+                <div style={{ margin: "12px 0 4px" }}>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 99,
+                      background: "var(--line)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${pct}%`,
+                        height: "100%",
+                        background: done ? "var(--cool, var(--accent))" : "var(--accent)",
+                        transition: "width 0.3s",
+                      }}
+                    />
                   </div>
-                  <div>
-                    <span style={{ display: "block" }}>Last</span>
-                    <b>{lastNote ?? "—"}</b>
-                  </div>
-                  <div>
-                    <span style={{ display: "block" }}>Status</span>
-                    <b>{g.status}</b>
+                  <div style={{ fontSize: "var(--t-1)", color: "var(--mute)", marginTop: 4 }}>
+                    {pct}% · {g._count?.progressEvents ?? events.length} updates
+                    {lastNote ? ` · last: ${lastNote}` : ""}
                   </div>
                 </div>
               </div>

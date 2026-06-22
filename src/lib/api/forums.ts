@@ -65,3 +65,31 @@ export function reply(token: string, threadId: string, content: string) {
     body: JSON.stringify({ content }),
   });
 }
+
+export function editThread(
+  token: string,
+  threadId: string,
+  payload: { title: string; body: string },
+) {
+  return apiFetch<ForumThread>(`/forums/threads/${threadId}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteThread(token: string, threadId: string) {
+  return apiFetch(`/forums/threads/${threadId}`, { method: "DELETE", token });
+}
+
+export function editReply(token: string, replyId: string, content: string) {
+  return apiFetch<{ id: string; content: string }>(`/forums/replies/${replyId}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify({ content }),
+  });
+}
+
+export function deleteReply(token: string, replyId: string) {
+  return apiFetch(`/forums/replies/${replyId}`, { method: "DELETE", token });
+}

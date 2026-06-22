@@ -39,6 +39,25 @@ export function logProgress(
   });
 }
 
+export function setGoalStatus(
+  token: string,
+  goalId: string,
+  status: "ACTIVE" | "COMPLETED" | "ARCHIVED",
+) {
+  return apiFetch<Goal>(`/goals/${goalId}/status`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify({ status }),
+  });
+}
+
 export function deleteGoal(token: string, goalId: string) {
   return apiFetch(`/goals/${goalId}`, { method: "DELETE", token });
+}
+
+/** Current completion % = the most recent progress event's value (0–100). */
+export function goalProgressPct(goal: Goal): number {
+  const latest = goal.progressEvents?.[0]?.progress;
+  if (goal.status === "COMPLETED") return 100;
+  return Math.max(0, Math.min(100, latest ?? 0));
 }
