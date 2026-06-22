@@ -13,6 +13,25 @@ import {
   type FeedPost,
 } from "@/lib/api/feed";
 
+/** Render free text with @usernames turned into profile links. */
+function linkifyMentions(text: string) {
+  return text.split(/(@[a-z0-9_]{3,30})/gi).map((part, i) => {
+    const m = /^@([a-z0-9_]{3,30})$/i.exec(part);
+    if (m) {
+      return (
+        <Link
+          key={i}
+          href={`/profile/${m[1].toLowerCase()}`}
+          style={{ color: "var(--accent-ink)", fontWeight: 500 }}
+        >
+          {part}
+        </Link>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diff / 60_000);
@@ -120,7 +139,7 @@ export function PostCard({ post }: { post: FeedPost }) {
         </div>
       </div>
       {post.title && <h3 style={{ margin: "10px 0 0", fontWeight: 500 }}>{post.title}</h3>}
-      <p className="post-body" style={{ whiteSpace: "pre-wrap" }}>{post.content}</p>
+      <p className="post-body" style={{ whiteSpace: "pre-wrap" }}>{linkifyMentions(post.content)}</p>
       {post.media.length > 0 && (
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
           {post.media.map((m) => {
@@ -188,7 +207,7 @@ export function PostCard({ post }: { post: FeedPost }) {
               <div style={{ flex: 1, fontSize: 13 }}>
                 <b style={{ fontWeight: 500 }}>{c.author.displayName}</b>
                 <span style={{ color: "var(--mute)", marginLeft: 6 }}>{timeAgo(c.createdAt)}</span>
-                <div>{c.body}</div>
+                <div>{linkifyMentions(c.body)}</div>
               </div>
             </div>
           ))}
