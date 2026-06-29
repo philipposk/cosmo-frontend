@@ -54,8 +54,15 @@ export type CreatePostPayload = {
   mediaIds?: string[];
 };
 
-export function fetchFeed(token: string, cursor?: string) {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+export function fetchFeed(
+  token: string,
+  cursor?: string,
+  sort: "new" | "hot" = "new",
+) {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  if (sort === "hot") params.set("sort", "hot");
+  const qs = params.toString() ? `?${params.toString()}` : "";
   return apiFetch<FeedPage>(`/feed${qs}`, { token });
 }
 

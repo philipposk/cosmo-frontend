@@ -27,9 +27,10 @@ async function fetchProfile(username: string): Promise<UserProfile | null> {
   }
 }
 
-async function fetchFeedSSR(token: string): Promise<FeedPage> {
+async function fetchFeedSSR(token: string, sort: "new" | "hot"): Promise<FeedPage> {
   try {
-    const res = await fetch(`${env.backendApiUrl}/feed`, {
+    const qs = sort === "hot" ? "?sort=hot" : "";
+    const res = await fetch(`${env.backendApiUrl}/feed${qs}`, {
       cache: "no-store",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -69,12 +70,17 @@ function initialsFor(name: string): string {
     .toUpperCase();
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
   const session = await getServerSession();
   const token = session?.user?.token ?? "";
+  const sort = (await searchParams).sort === "hot" ? "hot" : "new";
   const [profile, feed, trending] = await Promise.all([
     session?.user?.username ? fetchProfile(session.user.username) : Promise.resolve(null),
-    token ? fetchFeedSSR(token) : Promise.resolve<FeedPage>({ items: [], nextCursor: null }),
+    token ? fetchFeedSSR(token, sort) : Promise.resolve<FeedPage>({ items: [], nextCursor: null }),
     fetchTrending(),
   ]);
 
@@ -115,7 +121,28 @@ export default async function DashboardPage() {
         <div>
           <Composer initials={initials} />
 
-          <div style={{ height: 22 }} />
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              margin: "22px 0 14px",
+              borderBottom: "1px solid var(--line)",
+              paddingBottom: 8,
+            }}
+          >
+            <Link
+              href="/dashboard"
+              className={"btn btn-sm " + (sort === "new" ? "btn-primary" : "btn-ghost")}
+            >
+              Latest
+            </Link>
+            <Link
+              href="/dashboard?sort=hot"
+              className={"btn btn-sm " + (sort === "hot" ? "btn-primary" : "btn-ghost")}
+            >
+              Hot
+            </Link>
+          </div>
 
           {feed.items.length === 0 ? (
             <article className="post">
