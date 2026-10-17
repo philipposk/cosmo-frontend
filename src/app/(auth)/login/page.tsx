@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { clearAuthError, readAuthError } from "@/lib/auth/session";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
@@ -21,8 +22,17 @@ function LoginPageContent() {
   const callbackUrl = searchParams?.get("callbackUrl") ?? "/dashboard";
   const resetOk = searchParams?.get("reset") === "ok";
   const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    const message = readAuthError();
+    if (message) {
+      setApiError(message);
+      clearAuthError();
+    }
+  }, []);
 
   const {
     register,
@@ -119,6 +129,7 @@ function LoginPageContent() {
           </div>
 
           {error && <div style={{ color: "var(--accent-ink)", fontSize: "var(--t-2)" }}>{error}</div>}
+          {apiError && <div style={{ color: "var(--accent-ink)", fontSize: "var(--t-2)" }}>{apiError}</div>}
 
           <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: "100%" }}>
             {loading ? "Signing in…" : "Sign in"}

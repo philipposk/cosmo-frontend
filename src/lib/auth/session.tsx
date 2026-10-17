@@ -69,6 +69,18 @@ const SessionContext = createContext<SessionContextValue>({
 // Exchange Supabase token → Cosmo JWT + profile
 // ---------------------------------------------------------------------------
 
+const AUTH_ERROR_KEY = "cosmo-auth-error";
+
+export function readAuthError(): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(AUTH_ERROR_KEY);
+}
+
+export function clearAuthError() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(AUTH_ERROR_KEY);
+}
+
 async function exchangeToken(supabaseAccessToken: string): Promise<CosmoUser | null> {
   const backendUrl =
     process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "http://localhost:4000";
@@ -85,7 +97,13 @@ async function exchangeToken(supabaseAccessToken: string): Promise<CosmoUser | n
       signal: AbortSignal.timeout(8000),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      sessionStorage.setItem(
+        AUTH_ERROR_KEY,
+        "Signed in, but the Cosmo API rejected the session. Try again in a moment.",
+      );
+      return null;
+    }
 
     const data = await res.json();
 
@@ -105,6 +123,10 @@ async function exchangeToken(supabaseAccessToken: string): Promise<CosmoUser | n
       token: data.token ?? null,
     };
   } catch {
+    sessionStorage.setItem(
+      AUTH_ERROR_KEY,
+      "Signed in, but the Cosmo API is unreachable, so the session cannot finish.",
+    );
     return null;
   }
 }
