@@ -4,6 +4,7 @@ import { TierCard } from "@/components/membership/TierCard";
 import { env } from "@/lib/env";
 import type { MembershipTier, UserMembership } from "@/lib/api/membership";
 import { Icon } from "@/components/common/Icon";
+import { billingEnabled } from "@/lib/billing";
 
 async function fetchTiers(): Promise<MembershipTier[]> {
   try {
@@ -46,8 +47,9 @@ export default async function MembershipPage() {
           <div className="eyebrow">Plans</div>
           <h1 className="display">Membership</h1>
           <p className="sub">
-            Unlock more AI generation, longer stories, and priority support. Upgrades take effect
-            immediately and can be cancelled any time.
+            {billingEnabled
+              ? "Unlock more AI generation, longer stories, and priority support. Upgrades take effect immediately and can be cancelled any time."
+              : "Paid plans with more AI generation, longer stories, and priority support are coming soon."}
           </p>
         </div>
       </div>
@@ -67,7 +69,16 @@ export default async function MembershipPage() {
         </div>
       )}
 
-      {!session && (
+      {!billingEnabled && (
+        <div className="card-flat" style={{ marginBottom: 22 }}>
+          <div className="row" style={{ gap: 10 }}>
+            <Icon name="star" size={16} style={{ color: "var(--mute)" }} />
+            <span style={{ color: "var(--mute)" }}>Coming soon — upgrades aren&apos;t open yet.</span>
+          </div>
+        </div>
+      )}
+
+      {billingEnabled && !session && (
         <div className="card-flat" style={{ marginBottom: 22 }}>
           <div className="row" style={{ gap: 10 }}>
             <Icon name="lock" size={16} style={{ color: "var(--mute)" }} />

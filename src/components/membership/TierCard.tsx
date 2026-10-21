@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth/session";
 import { MembershipTier, createCheckoutSession } from "@/lib/api/membership";
 import { formatCurrency } from "@/lib/number-format";
+import { billingEnabled } from "@/lib/billing";
 
 type TierCardProps = {
   tier: MembershipTier;
@@ -18,7 +19,7 @@ export function TierCard({ tier, isCurrent }: TierCardProps) {
   const [error, setError] = useState<string | null>(null);
 
   const handleCheckout = async () => {
-    if (isCurrent) {
+    if (isCurrent || !billingEnabled) {
       return;
     }
     if (!session?.user?.token) {
@@ -67,10 +68,10 @@ export function TierCard({ tier, isCurrent }: TierCardProps) {
       <div className="mt-6 space-y-2">
         <button
           onClick={handleCheckout}
-          disabled={isCurrent || isLoading}
+          disabled={isCurrent || isLoading || !billingEnabled}
           className="w-full rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
-          {isCurrent ? "Current plan" : isLoading ? "Redirecting…" : "Upgrade"}
+          {isCurrent ? "Current plan" : !billingEnabled ? "Coming soon" : isLoading ? "Redirecting…" : "Upgrade"}
         </button>
         {error ? <p className="text-sm text-red-500">{error}</p> : null}
       </div>
