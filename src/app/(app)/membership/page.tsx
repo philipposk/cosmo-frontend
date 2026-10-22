@@ -72,12 +72,8 @@ export default async function MembershipPage() {
           <div className="row" style={{ gap: 10 }}>
             <Icon name="lock" size={16} style={{ color: "var(--mute)" }} />
             <span style={{ color: "var(--mute)" }}>
-              <Link href="/register" style={{ color: "var(--accent-ink)", fontWeight: 500 }}>
-                Create an account
-              </Link>{" "}
-              or{" "}
               <Link href="/login" style={{ color: "var(--accent-ink)", fontWeight: 500 }}>
-                sign in
+                Sign in or create an account
               </Link>{" "}
               to subscribe.
             </span>

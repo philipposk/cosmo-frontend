@@ -19,6 +19,7 @@ import React, {
 } from "react";
 import type { Session as SupabaseSession } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { safeNext } from "@/lib/safe-next.mjs";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the next-auth Session shape the app already uses
@@ -212,18 +213,12 @@ export async function signOut(options?: { callbackUrl?: string }) {
 }
 
 /**
- * Thin helper — mostly the login page calls Supabase directly.
- * Kept here so components can call signIn("google") for OAuth.
+ * Thin helper for components that start a Google sign-in. Email sign-in (an emailed link or
+ * code) lives on the /login page; there are no passwords.
  */
 export async function signIn(
-  provider: string,
-  options?: {
-    identifier?: string;
-    password?: string;
-    email?: string;
-    callbackUrl?: string;
-    redirect?: boolean;
-  },
+  provider: "google",
+  options?: { callbackUrl?: string },
 ): Promise<{ error?: string } | void> {
   const supabase = createClient();
   if (!supabase) {
@@ -231,22 +226,12 @@ export async function signIn(
   }
 
   if (provider === "google") {
+    const next = safeNext(options?.callbackUrl ?? null, "/dashboard");
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
-    return;
-  }
-
-  // email / credentials fallback
-  const email = options?.email ?? options?.identifier ?? "";
-  const password = options?.password ?? "";
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: error.message };
-
-  if (options?.redirect !== false) {
-    window.location.href = options?.callbackUrl ?? "/dashboard";
   }
 }

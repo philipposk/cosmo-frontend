@@ -1,47 +1,47 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { env } from "@/lib/env";
+import { safeNext } from "@/lib/safe-next.mjs";
 
-type Props = { searchParams: Promise<{ token?: string }> };
+export const metadata: Metadata = { title: "Sign in · Cosmo", robots: { index: false, follow: false } };
 
-async function confirm(token: string): Promise<{ ok: boolean; message?: string }> {
-  try {
-    const res = await fetch(`${env.backendApiUrl}/auth/confirm-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-      cache: "no-store",
-    });
-    if (res.ok) return { ok: true };
-    const body = (await res.json().catch(() => ({}))) as { message?: string };
-    return { ok: false, message: body.message ?? `${res.status} ${res.statusText}` };
-  } catch (err) {
-    return { ok: false, message: (err as Error).message };
-  }
-}
+const LINK_TYPES = ["magiclink", "signup", "invite", "email", "email_change"];
 
+type Props = { searchParams: Promise<{ token_hash?: string; type?: string; next?: string }> };
+
+/**
+ * Landing page for emailed links built from a Supabase `token_hash`. Opening it does nothing by itself:
+ * the one-time token is only spent when the person taps the button (a same-origin POST to /auth/verify).
+ * That stops mail scanners from burning links, and stops a crafted GET link from signing a visitor into
+ * someone else's account. (Supabase's own `{{ .ConfirmationURL }}` links go to /auth/callback instead.)
+ */
 export default async function ConfirmPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const token = params.token ?? "";
-  if (!token) {
-    return (
-      <div className="content" style={{ maxWidth: 520, margin: "0 auto" }}>
-        <h1 className="display">Missing token</h1>
-        <p className="sub">Open the link from your confirmation email.</p>
-      </div>
-    );
-  }
-  const result = await confirm(token);
+  const sp = await searchParams;
+  const tokenHash = typeof sp.token_hash === "string" && /^[A-Za-z0-9_-]{10,200}$/.test(sp.token_hash) ? sp.token_hash : null;
+  const type = typeof sp.type === "string" && LINK_TYPES.includes(sp.type) ? sp.type : "magiclink";
+  const next = safeNext(sp.next ?? null, "/dashboard");
 
   return (
     <div className="content" style={{ maxWidth: 520, margin: "0 auto" }}>
-      <div className="eyebrow">Email confirmation</div>
-      <h1 className="display">{result.ok ? "Email confirmed." : "Could not confirm."}</h1>
-      <p className="sub">{result.ok ? "You can close this tab or head to your dashboard." : result.message}</p>
-      <div style={{ marginTop: 18 }}>
-        <Link href={result.ok ? "/dashboard" : "/login"} className="btn btn-primary">
-          {result.ok ? "Go to Cosmo" : "Back to sign in"}
-        </Link>
-      </div>
+      <div className="eyebrow">Sign in</div>
+      <h1 className="display">Cosmo</h1>
+      {tokenHash ? (
+        <form action="/auth/verify" method="post" style={{ marginTop: 18 }}>
+          <p className="sub">Tap the button to finish signing in.</p>
+          <input type="hidden" name="token_hash" value={tokenHash} />
+          <input type="hidden" name="type" value={type} />
+          <input type="hidden" name="next" value={next} />
+          <div style={{ marginTop: 18 }}>
+            <button type="submit" className="btn btn-primary">Sign in to Cosmo</button>
+          </div>
+        </form>
+      ) : (
+        <div style={{ marginTop: 18 }}>
+          <p className="sub">This sign-in link is incomplete or has expired.</p>
+          <div style={{ marginTop: 18 }}>
+            <Link href="/login" className="btn btn-primary">Get a new link</Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

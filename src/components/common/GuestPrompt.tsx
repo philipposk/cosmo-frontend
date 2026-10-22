@@ -33,11 +33,8 @@ export function GuestPrompt({ action = "access this", callbackUrl }: Props) {
         Cosmo is free to join. No algorithm. No noise.
       </p>
       <div className="row" style={{ justifyContent: "center", gap: 10 }}>
-        <Link href="/register" className="btn btn-primary">
-          <Icon name="sparkle" size={13} /> Create account
-        </Link>
-        <Link href={loginHref} className="btn btn-ghost">
-          Sign in
+        <Link href={loginHref} className="btn btn-primary">
+          <Icon name="sparkle" size={13} /> Sign in or join
         </Link>
       </div>
     </div>
