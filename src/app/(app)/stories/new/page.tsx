@@ -6,6 +6,7 @@ import { StoryComposer } from "@/components/stories/StoryComposer";
 import { env } from "@/lib/env";
 import type { ModelProvider } from "@/lib/api/ai-jobs";
 import type { UserMembership } from "@/lib/api/membership";
+import { billingEnabled } from "@/lib/billing";
 import { GuestPrompt } from "@/components/common/GuestPrompt";
 
 const DEFAULT_MAX_WORDS = 1000;
@@ -86,11 +87,17 @@ export default async function NewStoryPage() {
             <span className="font-semibold text-indigo-900">
               {membership?.tier.maxStoriesPerDay ?? 3} stories / {membership?.tier.name ?? "Free plan"}
             </span>
-            . Need more? Upgrade via{" "}
-            <Link href="/membership" className="text-indigo-600 underline">
-              Membership settings
-            </Link>
-            .
+            {billingEnabled ? (
+              <>
+                . Need more? Upgrade via{" "}
+                <Link href="/membership" className="text-indigo-600 underline">
+                  Membership settings
+                </Link>
+                .
+              </>
+            ) : (
+              ". Paid plans with higher limits are coming soon."
+            )}
           </p>
         </div>
       </header>
