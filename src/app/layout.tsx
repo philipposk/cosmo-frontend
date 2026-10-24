@@ -32,6 +32,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://cosmo.6x7.gr"),
   title: {
     default: "Cosmo — quiet creative home",
     template: "%s · Cosmo",
