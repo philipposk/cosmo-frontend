@@ -25,7 +25,7 @@ export default function Home() {
             fontSize: 14, fontWeight: 500,
             color: "var(--mute)", textDecoration: "none",
           }}>Sign in</Link>
-          <Link href="/register" style={{
+          <Link href="/login" style={{
             padding: "7px 16px", borderRadius: 8,
             background: "var(--accent)", color: "#fff",
             fontSize: 14, fontWeight: 600,
@@ -69,7 +69,7 @@ export default function Home() {
         </p>
 
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/register" style={{
+          <Link href="/login" style={{
             padding: "14px 32px", borderRadius: 10,
             background: "var(--accent)", color: "#fff",
             fontSize: 16, fontWeight: 700, textDecoration: "none",
@@ -167,7 +167,7 @@ export default function Home() {
         <p style={{ color: "var(--mute)", fontSize: 16, marginBottom: 32 }}>
           Free forever for personal use. No card required.
         </p>
-        <Link href="/register" style={{
+        <Link href="/login" style={{
           padding: "16px 40px", borderRadius: 10,
           background: "var(--accent)", color: "#fff",
           fontSize: 17, fontWeight: 700, textDecoration: "none",
