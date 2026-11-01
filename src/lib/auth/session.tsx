@@ -205,7 +205,7 @@ export function useSession() {
 export async function signOut(options?: { callbackUrl?: string }) {
   const supabase = createClient();
   if (supabase) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
   }
   const url = options?.callbackUrl ?? "/login";
   window.location.href = url;
