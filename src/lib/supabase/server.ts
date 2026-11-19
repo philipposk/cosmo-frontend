@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { sharedCookieOptions } from "./cookies";
+import { cookies, headers } from "next/headers";
+import { cookieOptionsForHost, hostFromHeaders } from "./cookies";
 
 export async function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -8,7 +8,7 @@ export async function createClient() {
   if (!url || !key) return null;
   const cookieStore = await cookies();
   return createServerClient(url, key, {
-      cookieOptions: sharedCookieOptions,
+      cookieOptions: cookieOptionsForHost(hostFromHeaders(await headers())),
       db: { schema: "cosmo" },
       cookies: {
         getAll() {
